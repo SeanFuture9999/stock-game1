@@ -1,0 +1,42 @@
+# === 敏感資料 ===
+.env
+*.db
+*.db-journal
+*.db-wal
+my_stocks.txt
+
+# === 早期開發腳本（含硬編碼密鑰）===
+app.py
+stock_auto_bot.py
+stock_ai_monitor.py
+new_stock.py
+dashboard.py
+check_models.py
+test_api.py
+
+# === Python ===
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# === 日誌 ===
+*.log
+shioaji.log
+
+# === IDE ===
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# === Claude Code ===
+.claude/
+
+# === 系統 ===
+.DS_Store
+Thumbs.db
+nul

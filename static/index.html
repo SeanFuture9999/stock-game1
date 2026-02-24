@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台股戰情室</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📊</text></svg>">
+</head>
+<body>
+    <div class="app-container">
+
+        <!-- ==================== 側邊欄 ==================== -->
+        <aside class="sidebar">
+            <div class="sidebar-logo">📊 台股戰情室</div>
+
+            <!-- 導航 -->
+            <div class="sidebar-section">
+                <h3>功能</h3>
+                <ul class="sidebar-nav">
+                    <li><button class="active" onclick="showTab('dashboard')">💹 即時行情</button></li>
+                    <li><button onclick="showTab('trade')">📝 交易紀錄</button></li>
+                    <li><button onclick="showTab('performance')">📈 績效總覽</button></li>
+                    <li><button onclick="showTab('calendar')">📅 日曆視圖</button></li>
+                    <li><button onclick="showTab('institutional')">📊 法人籌碼</button></li>
+                    <li><button onclick="showTab('ai')">🤖 AI 推薦</button></li>
+                    <li><button onclick="showTab('alerts')">🔔 到價提醒</button></li>
+                    <li><button onclick="showTab('diary')">📓 每日日記</button></li>
+                    <li><button onclick="showTab('settings')">⚙️ 設定</button></li>
+                </ul>
+            </div>
+
+            <!-- 持有股票 -->
+            <div class="sidebar-section">
+                <h3>💰 持有股票</h3>
+                <div id="sidebar-hold-list"></div>
+            </div>
+
+            <!-- 關注股票 -->
+            <div class="sidebar-section">
+                <h3>👀 關注股票</h3>
+                <div id="sidebar-watch-list"></div>
+            </div>
+
+            <!-- 新增股票 -->
+            <div class="sidebar-section" style="margin-top: auto;">
+                <div style="display: flex; gap: 4px;">
+                    <input type="text" id="add-stock-input" class="form-input" placeholder="輸入代號" maxlength="6" style="flex:1;">
+                    <select id="add-stock-category" class="form-select" style="width: 70px; font-size: 12px;">
+                        <option value="watch">關注</option>
+                        <option value="hold">持有</option>
+                    </select>
+                </div>
+                <button class="btn btn-primary btn-sm" style="width:100%; margin-top: 6px;" onclick="addStock()">
+                    ➕ 新增
+                </button>
+            </div>
+        </aside>
+
+        <!-- ==================== 主內容 ==================== -->
+        <main class="main-content">
+
+            <!-- 頂部欄 -->
+            <div class="top-bar">
+                <h1 id="page-title">💹 即時行情</h1>
+                <div class="status-badges">
+                    <span id="badge-connection" class="badge badge-blue">連線中...</span>
+                    <span id="badge-session" class="badge badge-yellow">--</span>
+                    <span id="badge-time" class="badge badge-green">--:--:--</span>
+                    <button class="btn btn-sm" onclick="refreshQuotes()">🔄 更新</button>
+                </div>
+            </div>
+
+            <!-- ========== TAB: 即時行情 ========== -->
+            <div id="tab-dashboard" class="tab-content active">
+
+                <!-- 持倉摘要 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>💰 持倉損益</h2>
+                        <span id="portfolio-update-time" style="font-size:12px; color: var(--text-muted);">--</span>
+                    </div>
+                    <div id="portfolio-summary" class="grid-3" style="margin-bottom: 16px;">
+                        <div class="inst-item">
+                            <div class="label">持股市值</div>
+                            <div class="value" id="total-market-value">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">未實現損益</div>
+                            <div class="value" id="total-unrealized">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">已實現損益</div>
+                            <div class="value" id="total-realized">--</div>
+                        </div>
+                    </div>
+                    <div id="portfolio-cards" class="grid-3"></div>
+                </div>
+
+                <!-- 持有股票行情 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>💹 持有股票即時行情</h2>
+                    </div>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>代號</th>
+                                <th>名稱</th>
+                                <th>現價</th>
+                                <th>漲跌%</th>
+                                <th>成交量</th>
+                                <th>VWAP</th>
+                                <th>最高</th>
+                                <th>最低</th>
+                            </tr>
+                        </thead>
+                        <tbody id="hold-table-body">
+                            <tr><td colspan="8" style="text-align:center; color: var(--text-muted);">載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 關注股票行情 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>👀 關注股票即時行情</h2>
+                    </div>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>代號</th>
+                                <th>名稱</th>
+                                <th>現價</th>
+                                <th>漲跌%</th>
+                                <th>成交量</th>
+                                <th>VWAP</th>
+                                <th>最高</th>
+                                <th>最低</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="watch-table-body">
+                            <tr><td colspan="9" style="text-align:center; color: var(--text-muted);">載入中...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ========== TAB: 交易紀錄 ========== -->
+            <div id="tab-trade" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📝 記錄交易</h2>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>股票代號</label>
+                            <input type="text" id="trade-stock-id" class="form-input" placeholder="如 2330" maxlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label>操作</label>
+                            <select id="trade-action" class="form-select">
+                                <option value="buy">買入</option>
+                                <option value="sell">賣出</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>股數</label>
+                            <input type="number" id="trade-shares" class="form-input" placeholder="1000" min="1">
+                        </div>
+                        <div class="form-group">
+                            <label>成交價</label>
+                            <input type="number" id="trade-price" class="form-input" placeholder="150.5" step="0.01" min="0">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>
+                                <input type="checkbox" id="trade-odd-lot"> 零股交易
+                            </label>
+                        </div>
+                        <div class="form-group">
+                            <label>備註</label>
+                            <input type="text" id="trade-note" class="form-input" placeholder="選填備註">
+                        </div>
+                    </div>
+                    <!-- 費用預覽 -->
+                    <div id="fee-preview" style="padding: 10px; background: var(--bg-primary); border-radius: 6px; margin: 12px 0; font-size: 13px; display:none;">
+                    </div>
+                    <button class="btn btn-primary" onclick="submitTrade()">✅ 確認送出</button>
+                    <button class="btn" onclick="previewFees()">🧮 試算費用</button>
+                </div>
+
+                <!-- 今日交易清單 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📋 今日交易紀錄</h2>
+                        <div>
+                            <input type="date" id="trade-date-filter" class="form-input" style="width:auto; display:inline-block;" onchange="loadTrades()">
+                        </div>
+                    </div>
+                    <div id="trade-summary" style="margin-bottom: 12px; display: flex; gap: 16px; font-size: 13px;"></div>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>時間</th>
+                                <th>操作</th>
+                                <th>代號</th>
+                                <th>名稱</th>
+                                <th>股數</th>
+                                <th>成交價</th>
+                                <th>金額</th>
+                                <th>手續費</th>
+                                <th>稅</th>
+                                <th>淨額</th>
+                                <th>備註</th>
+                            </tr>
+                        </thead>
+                        <tbody id="trade-table-body">
+                            <tr><td colspan="11" style="text-align:center; color: var(--text-muted);">尚無交易紀錄</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ========== TAB: 法人籌碼 ========== -->
+            <div id="tab-institutional" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📊 大盤三大法人買賣超</h2>
+                        <button class="btn btn-sm" onclick="fetchInstitutional()">🔄 手動抓取</button>
+                    </div>
+                    <div id="market-inst-data" class="inst-summary">
+                        <div class="inst-item">
+                            <div class="label">外資</div>
+                            <div class="value" id="inst-foreign">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">投信</div>
+                            <div class="value" id="inst-trust">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">自營商</div>
+                            <div class="value" id="inst-dealer">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">合計</div>
+                            <div class="value" id="inst-total">--</div>
+                        </div>
+                    </div>
+                    <div id="inst-date" style="font-size: 12px; color: var(--text-muted); text-align: center;"></div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📈 個股法人籌碼</h2>
+                    </div>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>代號</th>
+                                <th>名稱</th>
+                                <th>外資(張)</th>
+                                <th>投信(張)</th>
+                                <th>自營(張)</th>
+                                <th>合計(張)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stock-inst-body">
+                            <tr><td colspan="6" style="text-align:center; color: var(--text-muted);">盤後 18:05 自動更新</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ========== TAB: 每日日記 ========== -->
+            <div id="tab-diary" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <button id="btn-back-calendar" class="btn btn-sm" style="display:none;" onclick="backToCalendar()">◀ 返回日曆</button>
+                            <h2 style="margin:0;">📓 每日交易日記</h2>
+                        </div>
+                        <input type="date" id="diary-date" class="form-input" style="width:auto;" onchange="loadDiary()">
+                    </div>
+
+                    <!-- AI 檢討 -->
+                    <div class="diary-section">
+                        <h3>🤖 AI 自動檢討</h3>
+                        <div id="diary-ai-review" class="diary-ai-content">
+                            尚無 AI 檢討。盤後會自動生成。
+                        </div>
+                    </div>
+
+                    <!-- 使用者筆記 -->
+                    <div class="diary-section" style="border-left-color: var(--accent-blue);">
+                        <h3>✏️ 我的筆記</h3>
+                        <textarea id="diary-user-notes" class="form-textarea" placeholder="記錄今天的心得、觀察、想法..."></textarea>
+                    </div>
+
+                    <!-- 情緒標記 -->
+                    <div class="diary-section" style="border-left-color: var(--accent-yellow);">
+                        <h3>😊 情緒標記</h3>
+                        <div class="emotion-tags">
+                            <button class="emotion-tag" data-tag="disciplined" onclick="selectEmotion(this)">🎯 紀律執行</button>
+                            <button class="emotion-tag" data-tag="calm" onclick="selectEmotion(this)">😌 冷靜</button>
+                            <button class="emotion-tag" data-tag="impulsive" onclick="selectEmotion(this)">😤 衝動</button>
+                            <button class="emotion-tag" data-tag="panic" onclick="selectEmotion(this)">😰 恐慌</button>
+                            <button class="emotion-tag" data-tag="greedy" onclick="selectEmotion(this)">🤑 貪婪</button>
+                        </div>
+                    </div>
+
+                    <!-- 提醒事項 -->
+                    <div class="diary-section" style="border-left-color: var(--accent-orange);">
+                        <h3>⏰ 提醒事項</h3>
+                        <textarea id="diary-reminders" class="form-textarea" placeholder="明天要注意的事項、計劃..." style="min-height: 60px;"></textarea>
+                    </div>
+
+                    <!-- 明日計劃 -->
+                    <div class="diary-section" style="border-left-color: var(--accent-green);">
+                        <h3>📋 明日行動方案</h3>
+                        <textarea id="diary-tomorrow-plan" class="form-textarea" placeholder="明天的操作計劃..." style="min-height: 60px;"></textarea>
+                    </div>
+
+                    <div style="margin-top: 16px;">
+                        <button class="btn btn-primary" onclick="saveDiary()">💾 儲存日記</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ========== TAB: AI 推薦 ========== -->
+            <div id="tab-ai" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🤖 AI 智慧推薦</h2>
+                        <button class="btn btn-primary btn-sm" onclick="runAIRecommend()">🚀 啟動 AI 分析</button>
+                    </div>
+                    <div id="ai-loading" style="display:none; text-align:center; padding: 20px;">
+                        <div class="spinner"></div>
+                        <p style="color: var(--text-muted); margin-top: 8px;">AI 正在分析市場... (約 5-10 秒)</p>
+                    </div>
+                    <div id="ai-recommend-result"></div>
+                    <div style="padding: 12px; background: rgba(255,193,7,0.1); border-radius: 8px; margin-top: 12px; font-size: 12px; color: var(--accent-yellow); border: 1px solid rgba(255,193,7,0.2);">
+                        ⚠️ 以上分析僅供參考，不構成任何投資建議。投資有風險，請自行評估。
+                    </div>
+                </div>
+
+                <!-- AI 每日檢討 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📋 AI 每日檢討</h2>
+                        <button class="btn btn-sm" onclick="runAIReview()">🔄 手動生成</button>
+                    </div>
+                    <div id="ai-review-result" class="diary-ai-content">
+                        每日 18:15 自動生成。或點擊手動生成。
+                    </div>
+                </div>
+
+                <!-- 融資融券 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>💳 融資融券（散戶指標）</h2>
+                        <button class="btn btn-sm" onclick="fetchMarginData()">🔄 手動抓取</button>
+                    </div>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>代號</th>
+                                <th>融資買</th>
+                                <th>融資賣</th>
+                                <th>融資餘額</th>
+                                <th>融券買</th>
+                                <th>融券賣</th>
+                                <th>融券餘額</th>
+                                <th>當沖比%</th>
+                            </tr>
+                        </thead>
+                        <tbody id="margin-table-body">
+                            <tr><td colspan="8" style="text-align:center; color: var(--text-muted);">盤後 18:10 自動更新</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ========== TAB: 到價提醒 ========== -->
+            <div id="tab-alerts" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🔔 新增到價提醒</h2>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>股票代號</label>
+                            <input type="text" id="alert-stock-id" class="form-input" placeholder="如 2330" maxlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label>提醒類型</label>
+                            <select id="alert-type" class="form-select">
+                                <option value="above">突破 (價格 >= 目標)</option>
+                                <option value="below">跌破 (價格 <= 目標)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>目標價</label>
+                            <input type="number" id="alert-target-price" class="form-input" placeholder="150.0" step="0.01" min="0">
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end;">
+                            <button class="btn btn-primary" onclick="addAlert()">➕ 新增提醒</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 進行中的提醒 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>⏳ 進行中的提醒</h2>
+                        <button class="btn btn-sm" onclick="checkAlerts()">🔍 立即檢查</button>
+                    </div>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>代號</th>
+                                <th>名稱</th>
+                                <th>類型</th>
+                                <th>目標價</th>
+                                <th>設定時間</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="active-alerts-body">
+                            <tr><td colspan="6" style="text-align:center; color: var(--text-muted);">尚無提醒</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 已觸發的提醒 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>✅ 已觸發的提醒</h2>
+                    </div>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>代號</th>
+                                <th>名稱</th>
+                                <th>類型</th>
+                                <th>目標價</th>
+                                <th>觸發時間</th>
+                            </tr>
+                        </thead>
+                        <tbody id="triggered-alerts-body">
+                            <tr><td colspan="5" style="text-align:center; color: var(--text-muted);">尚無觸發紀錄</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ========== TAB: 績效總覽 ========== -->
+            <div id="tab-performance" class="tab-content">
+                <!-- 總績效摘要 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📈 總績效摘要</h2>
+                    </div>
+                    <div class="grid-3" id="perf-summary">
+                        <div class="inst-item">
+                            <div class="label">累計已實現損益</div>
+                            <div class="value" id="perf-total-pnl">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">總交易次數</div>
+                            <div class="value" id="perf-total-trades">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">累計交易成本</div>
+                            <div class="value" id="perf-total-cost">--</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 累計損益曲線 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📊 累計損益曲線</h2>
+                        <select id="perf-months" class="form-select" style="width:auto;" onchange="loadDailyPnl()">
+                            <option value="1">近 1 個月</option>
+                            <option value="3" selected>近 3 個月</option>
+                            <option value="6">近 6 個月</option>
+                            <option value="12">近 1 年</option>
+                        </select>
+                    </div>
+                    <canvas id="pnl-chart" height="280"></canvas>
+                    <div id="pnl-chart-empty" style="text-align:center; color: var(--text-muted); padding: 40px; display:none;">尚無交易紀錄</div>
+                </div>
+
+                <!-- 月報表 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📋 月報表</h2>
+                        <input type="month" id="perf-month-picker" class="form-input" style="width:auto;" onchange="loadMonthlyReport()">
+                    </div>
+                    <div class="grid-3" id="monthly-stats" style="margin-bottom: 16px;">
+                        <div class="inst-item">
+                            <div class="label">本月損益</div>
+                            <div class="value" id="month-pnl">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">勝率</div>
+                            <div class="value" id="month-winrate">--</div>
+                        </div>
+                        <div class="inst-item">
+                            <div class="label">交易天數</div>
+                            <div class="value" id="month-active-days">--</div>
+                        </div>
+                    </div>
+                    <div id="monthly-detail" style="font-size:13px; color: var(--text-secondary);"></div>
+                </div>
+
+                <!-- 持倉分佈 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🍩 持倉分佈</h2>
+                    </div>
+                    <div id="portfolio-dist" style="display: flex; gap: 24px; align-items: center; flex-wrap: wrap;">
+                        <canvas id="dist-chart" width="200" height="200"></canvas>
+                        <div id="dist-legend"></div>
+                    </div>
+                    <div id="dist-empty" style="text-align:center; color: var(--text-muted); padding: 20px; display:none;">尚無持倉</div>
+                </div>
+            </div>
+
+            <!-- ========== TAB: 日曆視圖 ========== -->
+            <div id="tab-calendar" class="tab-content">
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📅 月曆視圖</h2>
+                        <div style="display:flex; gap: 8px; align-items: center;">
+                            <button class="btn btn-sm" onclick="calendarNav(-1)">◀ 上月</button>
+                            <span id="calendar-month-label" style="font-weight: 600; min-width: 100px; text-align: center;"></span>
+                            <button class="btn btn-sm" onclick="calendarNav(1)">下月 ▶</button>
+                        </div>
+                    </div>
+                    <!-- 月曆表頭 -->
+                    <div class="calendar-grid">
+                        <div class="calendar-header">一</div>
+                        <div class="calendar-header">二</div>
+                        <div class="calendar-header">三</div>
+                        <div class="calendar-header">四</div>
+                        <div class="calendar-header">五</div>
+                        <div class="calendar-header" style="color:var(--accent-blue);">六</div>
+                        <div class="calendar-header" style="color:var(--accent-red);">日</div>
+                    </div>
+                    <div class="calendar-grid" id="calendar-body"></div>
+                    <!-- 月度統計 -->
+                    <div id="calendar-summary" style="margin-top: 16px; padding: 12px; background: var(--bg-primary); border-radius: 8px; font-size: 13px;"></div>
+                </div>
+            </div>
+
+            <!-- ========== TAB: 設定 ========== -->
+            <div id="tab-settings" class="tab-content">
+                <!-- Telegram 設定 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>📱 Telegram 通知設定</h2>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label>Bot 狀態</label>
+                            <div id="tg-bot-status" style="padding: 8px 0; font-size: 14px;">載入中...</div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group" style="flex: 2;">
+                            <label>Chat ID</label>
+                            <input type="text" id="settings-tg-chat-id" class="form-input" placeholder="尚未設定">
+                        </div>
+                        <div class="form-group" style="display:flex; align-items:flex-end; gap: 6px;">
+                            <button class="btn btn-primary btn-sm" onclick="detectTgChatId()">🔍 自動偵測</button>
+                            <button class="btn btn-sm" onclick="saveTgChatId()">💾 儲存</button>
+                        </div>
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <button class="btn btn-success btn-sm" onclick="testTelegram()">📨 發送測試訊息</button>
+                        <span id="tg-test-result" style="margin-left: 12px; font-size: 13px;"></span>
+                    </div>
+                    <div style="margin-top: 12px; padding: 10px; background: var(--bg-primary); border-radius: 6px; font-size: 12px; color: var(--text-muted);">
+                        💡 步驟：1. 在 Telegram 搜尋你的 Bot → 2. 發送任意訊息 → 3. 點擊「自動偵測」按鈕 → 4. 發送測試訊息確認
+                    </div>
+                </div>
+
+                <!-- 交易費用設定 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>💰 交易費用設定</h2>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>手續費率</label>
+                            <input type="text" id="settings-fee-rate" class="form-input" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>手續費折扣</label>
+                            <input type="number" id="settings-fee-discount" class="form-input" step="0.05" min="0.1" max="1.0" placeholder="0.6">
+                        </div>
+                        <div class="form-group">
+                            <label>交易稅(股票)</label>
+                            <input type="text" id="settings-tax-stock" class="form-input" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label>交易稅(ETF)</label>
+                            <input type="text" id="settings-tax-etf" class="form-input" disabled>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="saveFeeDiscount()">💾 儲存折扣設定</button>
+                </div>
+
+                <!-- AI 設定 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🤖 AI 模型設定</h2>
+                    </div>
+                    <div class="form-group">
+                        <label>AI 提供者</label>
+                        <select id="settings-ai-provider" class="form-select" style="width: 200px;">
+                            <option value="gemini">Google Gemini</option>
+                            <option value="claude" disabled>Claude (Coming Soon)</option>
+                            <option value="local" disabled>Local LLM (Coming Soon)</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-primary btn-sm" onclick="saveAiProvider()">💾 儲存</button>
+                </div>
+
+                <!-- 集保大戶 -->
+                <div class="card">
+                    <div class="card-header">
+                        <h2>🏦 集保大戶資料</h2>
+                        <button class="btn btn-primary btn-sm" onclick="fetchTdccData()">🔄 手動抓取</button>
+                    </div>
+                    <div id="tdcc-status" style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">每週更新</div>
+                    <table class="stock-table">
+                        <thead>
+                            <tr>
+                                <th>代號</th>
+                                <th>名稱</th>
+                                <th>散戶 (&lt;100張)</th>
+                                <th>中實戶 (100-400張)</th>
+                                <th>大戶 (&gt;400張)</th>
+                                <th>資料日期</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tdcc-table-body">
+                            <tr><td colspan="6" style="text-align:center; color: var(--text-muted);">點擊「手動抓取」取得資料</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Toast 通知容器 -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
